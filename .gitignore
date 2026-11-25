@@ -1,0 +1,6 @@
+node_modules/
+video/*.wav
+video/audio-list.txt
+video/check-*.jpg
+video/sil-*.wav
+.DS_Store

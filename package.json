@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "@forge/api": "^8.5.1"
+  },
+  "description": "TriageBot — a Forge + Rovo agent that triages a Jira backlog: clusters duplicates, scores priority P0-P3, suggests an owning team, and drafts first replies. Proposes only; a human approves every action.",
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "name": "triagebot",
+  "scripts": {
+    "demo": "node src/index.js",
+    "test": "node test/triage.test.js && node test/llm.test.js"
+  },
+  "version": "0.2.0"
+}

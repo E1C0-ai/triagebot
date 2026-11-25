@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TriageBot — live demo (Codegeist 2026)</title>
+<style>
+  /* Light + dark via color-scheme and CSS variables. */
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7fb; --text: #1a1a2e; --muted: #555;
+    --card: #fff; --border: #e3e3ee;
+    --input-bg: #fff; --input-border: #ccc;
+    --pre-bg: #f0f0f7; --code-bg: #f0f0f7;
+    --warn-bg: #fff7e0; --warn-border: #d9a521; --warn-text: #5a4310;
+    --dup: #b91c1c; --link: #2545c7; --th: #555; --row-border: #eee;
+    --btn-bg: #1a1a2e; --btn-text: #fff;
+    --error-bg: #fde8e8; --error-border: #c81e1e; --error-text: #7f1d1d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141c; --text: #ececf2; --muted: #a9a9bd;
+      --card: #1e1e2a; --border: #35354a;
+      --input-bg: #262636; --input-border: #4a4a63;
+      --pre-bg: #262636; --code-bg: #262636;
+      --warn-bg: #3a2f10; --warn-border: #8a6d1f; --warn-text: #f5d67a;
+      --dup: #f87171; --link: #8aa2ff; --th: #b9b9cc; --row-border: #35354a;
+      --btn-bg: #e8e8f2; --btn-text: #14141c;
+      --error-bg: #3d1717; --error-border: #f87171; --error-text: #fecaca;
+    }
+  }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 960px; padding: 24px 16px 64px; color: var(--text); background: var(--bg); }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { border: 1px solid var(--btn-bg); background: var(--btn-bg); color: var(--btn-text); border-radius: 8px; padding: 9px 14px; cursor: pointer; font-size: 14px; }
+  button.secondary { background: var(--card); color: var(--text); border-color: var(--border); }
+  button:hover:not(:disabled) { opacity: .85; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 180px; max-height: 320px; overflow-y: auto; resize: vertical; font: 13px/1.5 ui-monospace, monospace; color: var(--text); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 10px; margin-top: 10px; }
+  input[type="text"], input[type="password"] { box-sizing: border-box; color: var(--text); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 9px 10px; font-size: 13px; }
+  .draft-note { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .llm-badge { display: inline-block; font-size: 12px; font-weight: 700; color: #1d4ed8; background: #dbeafe; border-radius: 6px; padding: 1px 7px; margin-left: 6px; }
+  @media (prefers-color-scheme: dark) { .llm-badge { color: #bfdbfe; background: #1e3a5f; } }
+  .polish-btn { margin-top: 8px; padding: 6px 10px; font-size: 13px; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--pre-bg); border-radius: 8px; padding: 12px; font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--row-border); vertical-align: top; }
+  th { color: var(--th); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .band { display: inline-block; min-width: 30px; text-align: center; font-weight: 700; border-radius: 6px; padding: 2px 7px; color: #fff; }
+  .P0 { background: #c81e1e; } .P1 { background: #c25700; } .P2 { background: #8a5a00; } .P3 { background: #5b6b82; }
+  .dup { color: var(--dup); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 13px; }
+  details { margin-top: 6px; } summary { cursor: pointer; color: var(--link); font-size: 13px; }
+  .warn { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .status { min-height: 1.2em; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>TriageBot — live demo</h1>
+<p class="sub">The same engine the Forge + Rovo agent calls (<code>src/triage.js</code>), running in your browser. No server, no key, no data leaves this page. Paste your own Jira issues as JSON, or try a sample.</p>
+<p class="sub">All computation happens locally in your browser — nothing is uploaded. TriageBot only assists analysis: it never modifies a Jira issue. Every action needs a human to confirm. <b>Privacy by default:</b> with LLM polish off (the default), this page makes zero network requests. The optional LLM only ever receives one issue at a time, and only when you turn it on.</p>
+
+<div id="kernel-error" class="error" hidden><b>TriageBot 内核脚本加载失败，请刷新页面</b><br>The demo engine could not be loaded, so all actions are disabled.</div>
+<noscript><div class="error"><b>JavaScript is required for this demo.</b></div></noscript>
+
+<div class="card">
+  <div class="row" id="actions">
+    <button id="btn-sample" type="button">Sample — 6 issues</button>
+    <button id="btn-large" type="button" class="secondary">Stress — 24 issues</button>
+    <button id="btn-empty" type="button" class="secondary">Empty backlog</button>
+    <button id="btn-custom" type="button" class="secondary">Run pasted JSON ↓</button>
+  </div>
+  <textarea id="input" placeholder='[{"key":"PROJ-1","title":"Checkout payment fails","summary":"Payment fails at checkout in production","type":"Bug","created":"2026-11-20T09:00:00Z"}]'></textarea>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <p class="muted">Each issue: <code>key</code>, <code>title</code>, <code>summary</code>, <code>type</code> (Bug / Incident / Story / Task), <code>created</code> (ISO date). Missing fields are tolerated — see warnings below.</p>
+</div>
+
+<div id="out"></div>
+
+<div class="card" id="llm-card">
+  <h3 style="margin-top:0">✨ Optional: LLM-polished draft replies</h3>
+  <p class="muted" style="margin-top:0">Priority, duplicates and team are always decided locally — the LLM only rewrites the <i>wording</i> of one draft reply at a time. It never changes the band, score, team or response time.</p>
+  <label class="row" style="gap:6px"><input type="checkbox" id="llm-enable"> Enable LLM polish</label>
+  <div class="row" style="margin-top:10px">
+    <input type="password" id="llm-key" placeholder="API key (sk-…) — memory only, never saved" autocomplete="off" style="flex:2; min-width:220px">
+    <input type="text" id="llm-endpoint" value="https://api.openai.com/v1/chat/completions" title="OpenAI-compatible chat completions endpoint" style="flex:2; min-width:220px">
+    <input type="text" id="llm-model" value="gpt-4o-mini" title="Model name" style="flex:1; min-width:120px">
+  </div>
+  <p class="muted">Your key is read when you click “Polish” and held only in memory: it is never written to a file, localStorage, or a cookie, and it is only sent as an Authorization header to the endpoint above. Each polish sends a single issue's title, summary, band, score and team — never the whole backlog. If the LLM fails or you leave the key empty, the local draft stays and you are told why.</p>
+  <div class="row">
+    <button id="btn-polish-all" type="button" class="secondary">✨ Polish all visible drafts</button>
+  </div>
+  <p class="status" id="llm-status" role="status" aria-live="polite"></p>
+</div>
+
+<!-- Single-file demo (Codegeist 2026): the full triage.js engine is inlined
+     below so this page works by double-clicking it, with no server and no
+     relative-path dependency. The readable source stays in src/triage.js;
+     regenerate this file with demo/build_demo.py after editing the engine. -->
+<script>
+// TriageBot core engine — pure JS, zero dependencies, no network, no API key.
+// Runs standalone (Node) and in the browser (UMD: window.TriageBot).
+// The Forge wiring lives in src/index.js; this file is the real product logic
+// and is the only file the tests exercise.
+//
+// What it does, in one pass over a Jira backlog:
+//   1. cluster duplicate issues (stopword-stripped, stemmed token similarity)
+//   2. score priority 0-100 and band P0-P3 (severity signal + impact + type + age)
+//   3. suggest an owning team (first-match rules, security first)
+//   4. draft a first reply with a band-appropriate response time
+//   5. build a human-readable daily digest a human can approve in one click
+//
+// Design rules (deliberate, auditable — no black box):
+//   - Severity is the SINGLE highest matching signal, never a sum of
+//     overlapping keywords. Phrase matching is longest-first and consumes the
+//     matched span, so "production" can never also count as "prod", and
+//     "payment fails" can never also count as "payment".
+//   - Impact adders are capped (+20) and age is capped (+5): an old cosmetic
+//     bug can never outrank a fresh outage. Age is a tiebreaker, not a driver.
+//   - The agent only ever PROPOSES. Nothing here closes, reassigns, or
+//     comments on an issue. A human approves every action.
+
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Text normalisation
+// ---------------------------------------------------------------------------
+
+// Words that carry no meaning for "are these two issues the same problem?".
+// Scoring does NOT use these tokens — it matches phrases on the raw text.
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'for', 'in', 'on', 'at', 'to', 'of', 'and', 'or', 'is',
+  'are', 'was', 'were', 'be', 'been', 'being', 'with', 'by', 'from', 'into',
+  'as', 'it', 'its', 'this', 'that', 'these', 'those', 'please', 'when',
+  'after', 'before', 'during', 'over', 'under', 'per', 'via', 'than',
+  'then', 'there', 'here', 'has', 'have', 'had', 'not', 'no', 'do', 'does',
+  'did', 'can', 'could', 'should', 'would', 'will', 'just', 'also', 'very',
+  'our', 'your', 'their', 'his', 'her', 'my', 'we', 'you', 'they', 'he',
+  'she', 'i', 'me', 'us', 'them', 'but', 'if', 'so', 'up', 'out', 'off',
+]);
+
+// Words that mean the same thing in a bug report. Applied after stemming.
+const SYNONYMS = {
+  log: 'login', signin: 'login', signup: 'login',
+  authent: 'auth', authoris: 'auth', authoriz: 'auth',
+  db: 'database',
+};
+
+// Naive stemmer, applied consistently to both sides of every comparison.
+// complete/completed -> complet, fails/fail -> fail, leaked -> leak,
+// users -> user, customers -> customer, orders -> order, settings -> setting.
+function stem(w) {
+  if (w.length <= 3) return w;
+  if (w.endsWith('ing') && w.length > 5) w = w.slice(0, -3);
+  else if (w.endsWith('ed') && w.length > 4) w = w.slice(0, -2);
+  else if (w.endsWith('es') && w.length > 4) w = w.slice(0, -2);
+  else if (w.endsWith('s') && !w.endsWith('ss') && !w.endsWith('us')) w = w.slice(0, -1);
+  if (w.endsWith('e') && w.length > 3) w = w.slice(0, -1);
+  return w;
+}
+
+function tokens(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !STOPWORDS.has(w))
+    .map((w) => SYNONYMS[stem(w)] || stem(w));
+}
+
+function tokenSet(text) {
+  return new Set(tokens(text));
+}
+
+// Similarity of two token sets: the better of Jaccard and overlap
+// coefficient. Overlap matters because a short duplicate ("Payment error at
+// checkout") shares most of its tokens with a longer original even when
+// Jaccard is dragged down by the original's extra words.
+function similarity(setA, setB) {
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let inter = 0;
+  for (const t of setA) if (setB.has(t)) inter += 1;
+  const union = new Set([...setA, ...setB]).size;
+  const jaccard = inter / union;
+  const overlap = inter / Math.min(setA.size, setB.size);
+  return { score: Math.max(jaccard, overlap), shared: inter };
+}
+
+function jaccard(a, b) {
+  const sa = a instanceof Set ? a : tokenSet(a);
+  const sb = b instanceof Set ? b : tokenSet(b);
+  if (sa.size === 0 || sb.size === 0) return 0;
+  let inter = 0;
+  for (const t of sa) if (sb.has(t)) inter += 1;
+  return inter / new Set([...sa, ...sb]).size;
+}
+
+// ---------------------------------------------------------------------------
+// Priority scoring
+// ---------------------------------------------------------------------------
+
+// Severity: ONE signal wins — the highest matching phrase. Ordered
+// longest-first so "token leaked" beats a bare "leaked", and "payment fails"
+// beats a bare "error". Every pattern is word-boundary anchored so "prod"
+// never matches inside "production" and "down" never matches "download".
+const SEVERITY_RULES = [
+  { re: /\bdata loss\b/i, weight: 55, label: 'data loss' },
+  { re: /\btoken leaked\b|\btoken leak\b|\bpassword leaked\b|\bsecret exposed\b|\bcredentials? exposed\b|\bapi key leaked\b/i, weight: 55, label: 'credential leak' },
+  { re: /\bsecurity breach\b|\bbreach\b/i, weight: 50, label: 'security breach' },
+  { re: /\bservice (is )?down\b|\bsite (is )?down\b|\bsystem (is )?down\b|\bdown\b|\boutage\b/i, weight: 50, label: 'outage' },
+  { re: /\bunreachable\b/i, weight: 45, label: 'unreachable' },
+  { re: /\bcve-\d/i, weight: 50, label: 'known CVE' },
+  { re: /\bleaked\b/i, weight: 50, label: 'credential leak' },
+  { re: /\bpayment fails\b|\bpayment failed\b|\bpayment error\b|\bcheckout fails\b|\bcheckout failed\b|\bcheckout error\b|\bcannot complete orders?\b|\borders? (cannot|can't) be completed\b/i, weight: 45, label: 'payment failure' },
+  { re: /\bcrash(?:es|ed|ing)?\b/i, weight: 45, label: 'crash' },
+  { re: /\bcannot log ?in\b|\blogin fails\b|\blogin failed\b|\blogin broken\b|\bcannot sign ?in\b|\bsign-?in fails\b/i, weight: 40, label: 'login broken' },
+  { re: /\bblocked\b|\bblocker\b/i, weight: 40, label: 'blocked' },
+  { re: /\b500\b|\btimes? out\b|\btimed? ?out\b|\btimeout\b/i, weight: 40, label: 'server error (500/timeout)' },
+  { re: /\bvulnerab\w*\b/i, weight: 40, label: 'security vulnerability' },
+  { re: /\bbroken\b/i, weight: 20, label: 'broken' },
+  { re: /\berror\b/i, weight: 20, label: 'error' },
+  { re: /\bslow\b|\bslowness\b/i, weight: 10, label: 'slow' },
+];
+
+// Impact adders: real blast radius, summed then capped at +20.
+const IMPACT_RULES = [
+  { re: /\ball users\b/i, weight: 15, label: 'all users' },
+  { re: /\bproduction\b|\bprod\b/i, weight: 10, label: 'production' },
+  { re: /\brevenue\b/i, weight: 10, label: 'revenue impact' },
+  { re: /\bpaying\b/i, weight: 10, label: 'paying customers' },
+  { re: /\bmany users\b/i, weight: 10, label: 'many users' },
+  { re: /\bunder load\b/i, weight: 10, label: 'under load' },
+  { re: /\benterprise\b/i, weight: 10, label: 'enterprise' },
+  { re: /\bcustomers?\b/i, weight: 5, label: 'customers' },
+];
+
+const TYPE_POINTS = { bug: 5, incident: 10, task: 0, story: 0, epic: 0, subtask: 0 };
+const AGE_CAP = 5; // +1 per 3 days open, capped — age is a tiebreaker, not a driver
+const IMPACT_CAP = 20;
+const BANDS = [
+  { min: 70, band: 'P0' },
+  { min: 50, band: 'P1' },
+  { min: 30, band: 'P2' },
+  { min: 0, band: 'P3' },
+];
+
+function ageDays(iso, now = new Date()) {
+  if (!iso) return 0;
+  const ms = now - new Date(iso);
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.floor(ms / 86400000);
+}
+
+// Match rules against text, blanking each matched span as it is consumed so
+// no word is ever counted twice. Returns the matched labels and weights.
+function matchRules(text, rules) {
+  let working = ` ${text} `;
+  const hits = [];
+  for (const rule of rules) {
+    const m = working.match(rule.re);
+    if (m) {
+      hits.push({ weight: rule.weight, label: rule.label });
+      // Blank the matched span so a shorter overlapping rule can't re-match it.
+      working = working.replace(m[0], ' '.repeat(m[0].length));
+    }
+  }
+  return hits;
+}
+
+function scoreIssue(issue, now = new Date()) {
+  const text = `${issue.title || ''} ${issue.summary || ''}`;
+  const severityHits = matchRules(text, SEVERITY_RULES);
+  // Severity is the single highest signal — never a sum of overlapping words.
+  const severity = severityHits.reduce((max, h) => Math.max(max, h.weight), 0);
+  const severityLabel = severityHits
+    .filter((h) => h.weight === severity)
+    .map((h) => h.label)[0] || null;
+
+  const impactHits = matchRules(text, IMPACT_RULES);
+  const impactRaw = impactHits.reduce((sum, h) => sum + h.weight, 0);
+  const impact = Math.min(IMPACT_CAP, impactRaw);
+
+  const typePts = TYPE_POINTS[(issue.type || '').toLowerCase()] || 0;
+  const age = ageDays(issue.created, now);
+  const agePts = Math.min(AGE_CAP, Math.floor(age / 3));
+
+  const score = Math.min(100, severity + impact + typePts + agePts);
+  const band = BANDS.find((b) => score >= b.min).band;
+  const reasons = [
+    severityLabel,
+    ...impactHits.map((h) => h.label),
+    age >= 7 ? `open ${age}d` : null,
+    // Say so when the cap bit: the labels above are all real signals, but
+    // only +20 of impact counted toward the score.
+    impactRaw > IMPACT_CAP ? `impact capped at +${IMPACT_CAP}` : null,
+  ].filter(Boolean);
+  return {
+    score, band, severity, impact, ageDays: age, reasons,
+    // Full audit trail: score === severity + impact + typePoints + agePoints.
+    breakdown: {
+      severity, impact, impactRaw,
+      typePoints: typePts, agePoints: agePts, score,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Team routing — first match wins. Security is checked before backend on
+// purpose: "auth token leaked in server logs" is a security issue, not a
+// backend issue, even though the word "server" appears in it.
+// ---------------------------------------------------------------------------
+
+const TEAM_RULES = [
+  { team: 'security', words: ['security', 'breach', 'vulnerability', 'leak', 'token', 'auth', 'permission', 'cve', 'secret', 'password', 'exploit', 'sso'] },
+  { team: 'payments', words: ['payment', 'checkout', 'billing', 'invoice', 'refund', 'card', 'subscription'] },
+  { team: 'infra', words: ['outage', 'deploy', 'ci/cd', 'latency', 'server down', 'site down', 'incident', 'down', 'unreachable'] },
+  { team: 'backend', words: ['api', 'database', 'query', 'server', 'timeout', '500', 'endpoint', 'backend'] },
+  { team: 'frontend', words: ['ui', 'button', 'page', 'render', 'css', 'screen', 'mobile', 'dark mode', 'layout', 'style', 'safari', 'browser', 'crash', 'startup'] },
+];
+
+// Word-boundary matching (not substring): "down" must not match "download",
+// "ui" must not match "building", "auth" must not match "author".
+// A trailing -s/-es is allowed ("crashes" matches "crash", "tokens" matches
+// "token") — anything longer is a different word.
+function wordRegex(word) {
+  const parts = word.split(/\s+/).map((p) =>
+    p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const last = parts.length - 1;
+  parts[last] = `${parts[last]}(?:es|s)?`;
+  return new RegExp(`\\b${parts.join('\\s+')}\\b`, 'i');
+}
+
+function suggestTeam(issue) {
+  const text = `${issue.title || ''} ${issue.summary || ''}`;
+  for (const rule of TEAM_RULES) {
+    if (rule.words.some((w) => wordRegex(w).test(text))) return rule.team;
+  }
+  return 'triage-queue';
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate clustering
+// ---------------------------------------------------------------------------
+
+const DUPLICATE_MIN_SHARED = 3; // at least 3 shared content tokens
+const DUPLICATE_MIN_SIMILARITY = 0.55;
+
+function clusterDuplicates(issues) {
+  const sets = issues.map((issue) => tokenSet(`${issue.title || ''} ${issue.summary || ''}`));
+  const clusters = [];
+  const used = new Set();
+  for (let i = 0; i < issues.length; i += 1) {
+    if (used.has(i)) continue;
+    const group = [i];
+    used.add(i);
+    for (let j = i + 1; j < issues.length; j += 1) {
+      if (used.has(j)) continue;
+      const { score, shared } = similarity(sets[i], sets[j]);
+      if (shared >= DUPLICATE_MIN_SHARED && score >= DUPLICATE_MIN_SIMILARITY) {
+        group.push(j);
+        used.add(j);
+      }
+    }
+    clusters.push(group);
+  }
+  return clusters;
+}
+
+// ---------------------------------------------------------------------------
+// Draft replies — band-appropriate response times, and a duplicate draft
+// points at the issue being kept instead of starting a second thread.
+// ---------------------------------------------------------------------------
+
+const RESPONSE_TIME = {
+  P0: 'within 4 business hours',
+  P1: 'within one business day',
+  P2: 'within 3 business days',
+  P3: 'in the next sprint planning',
+};
+
+function draftReply(issue, scored, duplicateOf = null) {
+  const team = suggestTeam(issue);
+  const head = duplicateOf
+    ? `This looks like a duplicate of ${duplicateOf} — we're tracking it there, so I'll close this one as a duplicate once you confirm. `
+    : '';
+  return `${head}Hi — thanks for reporting this. We've triaged it as ${scored.band} ` +
+    `(score ${scored.score}/100: ${scored.reasons.join(', ') || 'routine'}), ` +
+    `owner: ${team}. Next step: reproduce on the current build and confirm ` +
+    `scope; we'll update this ticket ${RESPONSE_TIME[scored.band]}.`;
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+function normalizeIssue(issue, index) {
+  const warnings = [];
+  if (!issue || typeof issue !== 'object') {
+    return { key: `ITEM-${index + 1}`, title: '', summary: '', type: 'Task', created: null, warnings: [`item ${index + 1}: not an object, treated as empty`] };
+  }
+  const key = issue.key || `ITEM-${index + 1}`;
+  if (!issue.key) warnings.push(`${key}: missing key, assigned placeholder`);
+  if (!issue.title && !issue.summary) warnings.push(`${key}: no title or summary, scored on metadata only`);
+  if (!issue.created) warnings.push(`${key}: no created date, age counted as 0`);
+  return {
+    key,
+    title: issue.title || '',
+    summary: issue.summary || '',
+    type: issue.type || 'Task',
+    created: issue.created || null,
+    warnings,
+  };
+}
+
+function triageBacklog(issues, now = new Date()) {
+  if (!Array.isArray(issues)) {
+    throw new TypeError('triageBacklog expects an array of issues');
+  }
+  const normalized = issues.map((issue, i) => normalizeIssue(issue, i));
+  const warnings = normalized.flatMap((x) => x.warnings);
+
+  const clusters = clusterDuplicates(normalized);
+  // Keep the earliest-created issue in each duplicate group (the original
+  // report); the rest are duplicates of it.
+  const duplicateOf = new Map(); // issue index -> kept key
+  const duplicates = [];
+  for (const group of clusters) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort((a, b) => {
+      const da = normalized[a].created ? new Date(normalized[a].created) : new Date(0);
+      const db = normalized[b].created ? new Date(normalized[b].created) : new Date(0);
+      return da - db || a - b;
+    });
+    const keep = sorted[0];
+    const sim01 = similarity(
+      tokenSet(`${normalized[keep].title} ${normalized[keep].summary}`),
+      tokenSet(`${normalized[sorted[1]].title} ${normalized[sorted[1]].summary}`),
+    );
+    duplicates.push({
+      keep: normalized[keep].key,
+      duplicates: sorted.slice(1).map((idx) => normalized[idx].key),
+      similarity: Math.round(sim01.score * 100) / 100,
+      reason: `similar title + description (similarity ${Math.round(sim01.score * 100) / 100}, ${sim01.shared} shared keywords)`,
+    });
+    for (const idx of sorted.slice(1)) duplicateOf.set(idx, normalized[keep].key);
+  }
+
+  const items = normalized.map((issue, idx) => {
+    const scored = scoreIssue(issue, now);
+    return {
+      ...issue,
+      ...scored,
+      team: suggestTeam(issue),
+      draftReply: draftReply(issue, scored, duplicateOf.get(idx) || null),
+      isDuplicate: duplicateOf.has(idx),
+      duplicateOf: duplicateOf.get(idx) || null,
+    };
+  });
+  // Highest score first; older issues first on a tie (they have waited longer).
+  items.sort((a, b) => b.score - a.score
+    || (a.created || '9999').localeCompare(b.created || '9999'));
+
+  const byBand = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  for (const item of items) byBand[item.band] += 1;
+
+  const digest = items.length === 0
+    ? 'Backlog is clear — no open issues to triage.'
+    : [
+        `Triage digest — ${items.length} issues, ${duplicates.length} duplicate group(s).`,
+        `P0: ${byBand.P0} | P1: ${byBand.P1} | P2: ${byBand.P2} | P3: ${byBand.P3}`,
+        ...items.slice(0, 5).map((x, i) =>
+          `${i + 1}. [${x.band} ${x.score}] ${x.key} — ${x.title} (${x.team})${x.isDuplicate ? ` — duplicate of ${x.duplicateOf}` : ''}`),
+        'Nothing here was closed or reassigned — a human approves every action.',
+      ].join('\n');
+
+  return {
+    items,
+    duplicates,
+    digest,
+    stats: {
+      total: items.length,
+      byBand,
+      duplicateGroups: duplicates.length,
+      duplicateIssues: duplicates.reduce((n, d) => n + d.duplicates.length, 0),
+      topScore: items.length ? items[0].score : 0,
+      generatedAt: new Date(now).toISOString(),
+    },
+    warnings,
+  };
+}
+
+const TriageBotExports = {
+  triageBacklog, scoreIssue, suggestTeam, clusterDuplicates,
+  draftReply, jaccard, tokens, tokenSet, similarity, stem,
+};
+
+// UMD: Node gets module.exports; a plain <script> tag (demo page) gets
+// window.TriageBot. The bare `module.exports = ...` line would throw in a
+// browser, so both assignments are guarded.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = TriageBotExports;
+}
+if (typeof window !== 'undefined') {
+  window.TriageBot = TriageBotExports;
+}
+</script>
+<!-- Optional LLM polish (src/llm.js, inlined by demo/build_demo.py).
+     Loaded but inert: it makes no request unless the user enables it
+     and supplies a key. The key is never persisted anywhere. -->
+<script>
+// TriageBot LLM polish — OPTIONAL enhancement for draft replies ONLY.
+//
+// This file is deliberately separate from src/triage.js, and it never
+// touches a triage decision:
+//
+//   * Priority scoring, duplicate clustering, team routing and statistics
+//     all stay in triage.js, run locally, and are fully deterministic.
+//   * The ONLY thing this module does is rewrite the wording of ONE draft
+//     reply (the text draftReply() already produced) so it reads more
+//     naturally. The band, score, reasons, owning team, response time and
+//     duplicate link are passed to the model as fixed facts and the model
+//     is instructed not to change them.
+//
+// Privacy rules (enforced here, not just documented):
+//   * OFF by default. Nothing in this module runs — and no network request
+//     is made — unless the caller explicitly enables it AND supplies an
+//     API key. With no key, enhanceDraftReply() returns the local draft
+//     immediately without calling fetch at all.
+//   * MINIMAL payload. A request carries only one issue's title, summary
+//     (truncated to 500 chars), band, score, reasons, team and duplicate
+//     link — never the whole backlog, never any other issue.
+//   * KEY NEVER STORED. The key is passed in per call and held only in
+//     memory by the caller. This module never writes it to a file,
+//     localStorage, sessionStorage, a cookie or a log, and it is only ever
+//     sent as an Authorization header to the endpoint the user entered.
+//   * FAILURE FALLS BACK. Any error — no key, bad endpoint, HTTP error,
+//     timeout, empty reply — returns the local deterministic draft with
+//     source 'local' / 'local-fallback' and a reason. The demo never
+//     crashes and never shows a blank draft because the LLM failed.
+//
+// The endpoint is OpenAI-compatible (chat completions): the default is
+// https://api.openai.com/v1/chat/completions, but any compatible endpoint
+// (self-hosted, proxy, another provider) can be entered instead.
+
+'use strict';
+
+const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_TIMEOUT_MS = 15000;
+const MAX_SUMMARY_CHARS = 500;
+const MAX_TOKENS = 200;
+
+const LLM_RESPONSE_TIME = {
+  P0: 'within 4 business hours',
+  P1: 'within one business day',
+  P2: 'within 3 business days',
+  P3: 'in the next sprint planning',
+};
+
+function buildDraftPrompt({ issue, scored, team, duplicateOf = null, localDraft = '' }) {
+  const system = 'You rewrite a first reply to a Jira issue reporter. '
+    + 'You MUST NOT change the triage decision: keep the priority band, '
+    + 'score, owning team, response time and duplicate link exactly as '
+    + 'given. Only make the wording warmer, clearer and more natural, in '
+    + 'the same language as the issue text. Reply with ONLY the reply text '
+    + '— no preamble, no markdown, no explanation — under 80 words.';
+  const lines = [
+    `Issue: ${issue.key || ''} — ${issue.title || ''}`,
+    `Summary: ${(issue.summary || '').slice(0, MAX_SUMMARY_CHARS)}`,
+    `Triage decision (do not change): ${scored.band} (score ${scored.score}/100: ${(scored.reasons || []).join(', ') || 'routine'}), owner: ${team || 'triage-queue'}, reply ${LLM_RESPONSE_TIME[scored.band] || 'soon'}.`,
+  ];
+  if (duplicateOf) {
+    lines.push(`Duplicate note (do not change): this looks like a duplicate of ${duplicateOf}; the reply should point the reporter there.`);
+  }
+  lines.push(`Current draft (keep its facts, improve its wording): ${localDraft}`);
+  return { system, user: lines.join('\n') };
+}
+
+// What a request carries — nothing else. Used by tests to prove the
+// payload contains only this one issue's fields.
+function buildRequestBody({ issue, scored, team, duplicateOf = null, localDraft = '', model = DEFAULT_MODEL }) {
+  const { system, user } = buildDraftPrompt({ issue, scored, team, duplicateOf, localDraft });
+  return {
+    model,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    temperature: 0.3,
+    max_tokens: MAX_TOKENS,
+  };
+}
+
+function isLlmConfigured({ apiKey, endpoint } = {}) {
+  return Boolean(apiKey && String(apiKey).trim())
+    && Boolean(endpoint && String(endpoint).trim());
+}
+
+function resolveFetch(fetchFn) {
+  if (typeof fetchFn === 'function') return fetchFn;
+  if (typeof fetch !== 'undefined') return fetch;
+  return null;
+}
+
+// Enhance ONE draft reply. Always resolves — never rejects — so a caller
+// can treat the result as "the draft to show" unconditionally.
+// Returns { text, source, reason } where source is:
+//   'local'          — LLM off / no key / bad endpoint: local draft, no request made
+//   'llm'            — the model rewrote the wording (decision untouched)
+//   'local-fallback' — the request was attempted and failed: local draft kept
+async function enhanceDraftReply(options = {}) {
+  const {
+    issue = {},
+    scored = { band: 'P3', score: 0, reasons: [] },
+    team = 'triage-queue',
+    duplicateOf = null,
+    localDraft = '',
+    apiKey = '',
+    endpoint = DEFAULT_ENDPOINT,
+    model = DEFAULT_MODEL,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    fetchFn,
+  } = options;
+
+  const local = { text: localDraft, source: 'local', reason: 'LLM polish is off — local draft used.' };
+
+  if (!apiKey || !String(apiKey).trim()) {
+    return { ...local, reason: 'No API key provided — no request was sent; local draft used.' };
+  }
+  let url;
+  try {
+    url = new URL(String(endpoint).trim());
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('bad protocol');
+  } catch (e) {
+    return { ...local, reason: 'Endpoint is not a valid http(s) URL — no request was sent; local draft used.' };
+  }
+  const modelName = String(model || '').trim() || DEFAULT_MODEL;
+  const fetchImpl = resolveFetch(fetchFn);
+  if (!fetchImpl) {
+    return { ...local, reason: 'No fetch available in this environment — local draft used.' };
+  }
+
+  const body = buildRequestBody({ issue, scored, team, duplicateOf, localDraft, model: modelName });
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  // Race the fetch against a timeout so a fetch implementation that
+  // ignores the abort signal still cannot hang the demo forever.
+  let timer = null;
+  const timeoutError = new Error(`LLM request timed out after ${timeoutMs} ms`);
+  timeoutError.name = 'AbortError';
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => { if (controller) controller.abort(); reject(timeoutError); }, timeoutMs);
+  });
+  try {
+    const res = await Promise.race([
+      fetchImpl(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${String(apiKey).trim()}`,
+        },
+        body: JSON.stringify(body),
+        ...(controller ? { signal: controller.signal } : {}),
+      }),
+      timeoutPromise,
+    ]);
+    if (!res || !res.ok) {
+      const status = res ? res.status : 'no response';
+      return { text: localDraft, source: 'local-fallback', reason: `LLM request failed (HTTP ${status}) — local draft kept.` };
+    }
+    const data = await res.json();
+    const text = data && data.choices && data.choices[0]
+      && data.choices[0].message && typeof data.choices[0].message.content === 'string'
+      ? data.choices[0].message.content.trim()
+      : '';
+    if (!text) {
+      return { text: localDraft, source: 'local-fallback', reason: 'LLM returned an empty reply — local draft kept.' };
+    }
+    return { text, source: 'llm', reason: 'Wording polished by LLM; band, score, team and response time unchanged.' };
+  } catch (e) {
+    const reason = e && e.name === 'AbortError'
+      ? `LLM request timed out after ${timeoutMs} ms — local draft kept.`
+      : `LLM request failed (${(e && e.message) || 'network error'}) — local draft kept.`;
+    return { text: localDraft, source: 'local-fallback', reason };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+const LlmExports = {
+  DEFAULT_ENDPOINT,
+  DEFAULT_MODEL,
+  DEFAULT_TIMEOUT_MS,
+  buildDraftPrompt,
+  buildRequestBody,
+  enhanceDraftReply,
+  isLlmConfigured,
+};
+
+// UMD, same pattern as triage.js: Node gets module.exports, a plain
+// <script> tag gets window.TriageBotLLM.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = LlmExports;
+}
+if (typeof window !== 'undefined') {
+  window.TriageBotLLM = LlmExports;
+}
+</script>
+<script>
+'use strict';
+
+// Test hook for the kernel-failure check: open demo.html with
+// ?simulate-kernel-failure=1 to verify the error banner + disabled buttons.
+const SIMULATE_KERNEL_FAILURE =
+  new URLSearchParams(window.location.search).has('simulate-kernel-failure');
+
+const buttons = Array.from(document.querySelectorAll('#actions button'));
+const statusEl = document.getElementById('status');
+const outEl = document.getElementById('out');
+const kernelErrorEl = document.getElementById('kernel-error');
+let lastItems = []; // items from the latest triage run, for LLM polish
+
+function kernelReady() {
+  if (SIMULATE_KERNEL_FAILURE) return false;
+  return typeof window.TriageBot === 'object' && window.TriageBot !== null
+    && typeof window.TriageBot.triageBacklog === 'function';
+}
+
+function setButtonsDisabled(disabled) {
+  buttons.forEach((b) => { b.disabled = disabled; });
+}
+
+function showKernelError() {
+  kernelErrorEl.hidden = false;
+  setButtonsDisabled(true);
+  statusEl.textContent = '';
+  outEl.innerHTML = '<div class="card"><p><b>TriageBot 内核脚本加载失败，请刷新页面</b></p></div>';
+}
+
+function setLoading(on) {
+  statusEl.textContent = on ? '正在本地分析工单…' : '';
+  setButtonsDisabled(on);
+}
+
+const SAMPLE = [
+  {"created":"2026-11-20T09:00:00Z","key":"PROJ-101","summary":"Payment fails at checkout in production, customers cannot complete orders","title":"Checkout payment fails for all users","type":"Bug"},
+  {"created":"2026-11-21T09:00:00Z","key":"PROJ-102","summary":"Checkout payment error, order cannot be completed in production","title":"Payment error at checkout","type":"Bug"},
+  {"created":"2026-11-10T09:00:00Z","key":"PROJ-103","summary":"The login button is slightly misaligned on small screens, cosmetic only","title":"Login page button misaligned on mobile","type":"Bug"},
+  {"created":"2026-11-24T09:00:00Z","key":"PROJ-104","summary":"Reports API times out under load, server returns 500","title":"API timeout on reports endpoint","type":"Bug"},
+  {"created":"2026-11-01T09:00:00Z","key":"PROJ-105","summary":"Feature request: dark mode for the settings page","title":"Add dark mode to settings page","type":"Story"},
+  {"created":"2026-11-25T09:00:00Z","key":"PROJ-106","summary":"Security vulnerability, auth token appears in server logs","title":"Security: auth token leaked in logs","type":"Bug"}
+];
+// Stress set: the full 24-issue backlog from test-data/large-backlog.json.
+const LARGE = [{"created": "2026-11-25T08:00:00Z", "key": "OPS-201", "summary": "Production database is down, site unreachable, all users affected", "title": "Production database is down", "type": "Incident"}, {"created": "2026-11-25T09:30:00Z", "key": "OPS-202", "summary": "Database down in production, users cannot reach the site", "title": "Database down in production", "type": "Bug"}, {"created": "2026-11-20T09:00:00Z", "key": "PAY-301", "summary": "Payment fails at checkout in production, customers cannot complete orders", "title": "Checkout payment fails for all users", "type": "Bug"}, {"created": "2026-11-21T09:00:00Z", "key": "PAY-302", "summary": "Checkout payment error, order cannot be completed in production", "title": "Payment error at checkout", "type": "Bug"}, {"created": "2026-11-18T09:00:00Z", "key": "PAY-303", "summary": "Refund button broken on the order page, customers cannot get refunds", "title": "Refund button broken", "type": "Bug"}, {"created": "2026-11-25T09:00:00Z", "key": "SEC-401", "summary": "Security vulnerability, auth token appears in server logs", "title": "Security: auth token leaked in logs", "type": "Bug"}, {"created": "2026-11-24T09:00:00Z", "key": "SEC-402", "summary": "Known CVE in the auth library we use, upgrade needed", "title": "CVE-2026-1234 in auth library", "type": "Bug"}, {"created": "2026-11-24T09:00:00Z", "key": "APP-501", "summary": "App crashes on startup for all users after the latest update", "title": "App crashes on startup after update", "type": "Bug"}, {"created": "2026-11-23T09:00:00Z", "key": "APP-502", "summary": "Cannot log in with SSO, login fails for enterprise customers", "title": "Cannot log in with SSO", "type": "Bug"}, {"created": "2026-11-24T09:00:00Z", "key": "APP-503", "summary": "Reports API times out under load, server returns 500", "title": "API timeout on reports endpoint", "type": "Bug"}, {"created": "2026-11-22T09:00:00Z", "key": "APP-504", "summary": "Login fails on Safari, error on submit", "title": "Login fails on Safari", "type": "Bug"}, {"created": "2026-11-23T09:00:00Z", "key": "APP-505", "summary": "Cannot log in using Safari browser, login button shows error", "title": "Cannot log in using Safari browser", "type": "Bug"}, {"created": "2026-11-15T09:00:00Z", "key": "PERF-601", "summary": "Dashboard slow to load for many users, takes over 30 seconds", "title": "Dashboard slow to load", "type": "Bug"}, {"created": "2026-11-10T09:00:00Z", "key": "UI-701", "summary": "The login button is slightly misaligned on small screens, cosmetic only", "title": "Login page button misaligned on mobile", "type": "Bug"}, {"created": "2026-11-05T09:00:00Z", "key": "UI-702", "summary": "Typo in the footer text on the pricing page", "title": "Typo in footer", "type": "Bug"}, {"created": "2026-11-12T09:00:00Z", "key": "UI-703", "summary": "Save button broken on the settings page, nothing happens on click", "title": "Button broken on settings page", "type": "Bug"}, {"created": "2026-11-12T09:00:00Z", "key": "UI-704", "summary": "Submit button broken on the login page, form does not submit", "title": "Button broken on login page", "type": "Bug"}, {"created": "2026-11-01T09:00:00Z", "key": "FEAT-801", "summary": "Feature request: dark mode for the settings page", "title": "Add dark mode to settings page", "type": "Story"}, {"created": "2026-11-03T09:00:00Z", "key": "FEAT-802", "summary": "Feature request: export reports to CSV for finance", "title": "Export reports to CSV", "type": "Story"}, {"created": "2026-09-26T09:00:00Z", "key": "FEAT-803", "summary": "Feature request: keyboard shortcuts for power users", "title": "Add keyboard shortcuts", "type": "Story"}, {"created": "2026-11-23T09:00:00Z", "key": "OPS-203", "summary": "Deploy pipeline stuck, blocked release for two days", "title": "Deploy pipeline stuck", "type": "Task"}, {"created": "2026-11-20T09:00:00Z", "key": "MISC-901", "summary": "", "title": "Update onboarding docs", "type": "Task"}, {"key": "MISC-902", "summary": "Flaky test in CI, fails about once a week", "title": "Investigate flaky test", "type": "Task"}, {"created": "2026-11-24T09:00:00Z", "summary": "Something is wrong with search", "title": "Untitled report from email", "type": "Bug"}];
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(issues) {
+  if (!kernelReady()) { showKernelError(); return; }
+  const t0 = performance.now();
+  let result;
+  try {
+    result = window.TriageBot.triageBacklog(issues, new Date('2026-11-25T12:00:00Z'));
+  } catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Could not triage:</b> ${esc(e.message)}</p></div>`;
+    return;
+  }
+  const ms = (performance.now() - t0).toFixed(1);
+  lastItems = result.items || [];
+  if (!result.items || result.items.length === 0) {
+    outEl.innerHTML = `
+    <div class="card"><pre>${esc(result.digest)}</pre>
+      <p><b>没有待排序工单</b></p>
+      <p class="muted">Triaged in ${ms} ms in your browser · 0 issues · ${result.warnings.length} warning(s)</p>
+      ${result.warnings.length ? `<div class="warn">${result.warnings.map(esc).join('<br>')}</div>` : ''}
+    </div>`;
+    return;
+  }
+  const rows = result.items.map((x, idx) => `<tr>
+    <td><span class="band ${x.band}">${x.band}</span> ${x.score}</td>
+    <td><b>${esc(x.key)}</b><br>${esc(x.title)}${x.isDuplicate ? ` <span class="dup">— duplicate of ${esc(x.duplicateOf)}</span>` : ''}</td>
+    <td>${esc(x.team)}</td>
+    <td>${esc(x.reasons.join(', ') || '—')}</td>
+    <td><details><summary>Draft reply</summary><p class="draft-text" data-draft="${idx}">${esc(x.draftReply)}</p></details><button type="button" class="polish-btn secondary" data-idx="${idx}">✨ Polish this draft with LLM</button><p class="draft-note" data-note="${idx}"></p></td>
+  </tr>`).join('');
+  lastItems = result.items;
+  const dups = result.duplicates.map(d => `<li><b>Keep ${esc(d.keep)}</b> — ${esc(d.duplicates.join(', '))} ${esc(d.reason)}</li>`).join('');
+  outEl.innerHTML = `
+    <div class="card"><pre>${esc(result.digest)}</pre>
+      <p class="muted">Triaged in ${ms} ms in your browser · ${result.stats.total} issues · ${result.warnings.length} warning(s)</p>
+      ${result.warnings.length ? `<div class="warn">${result.warnings.map(esc).join('<br>')}</div>` : ''}
+    </div>
+    ${result.duplicates.length ? `<div class="card"><h3 style="margin-top:0">Duplicate groups (${result.duplicates.length})</h3><ul>${dups}</ul></div>` : ''}
+    <div class="card"><h3 style="margin-top:0">Ranked backlog</h3>
+      <div class="table-wrap"><table><tr><th>Priority</th><th>Issue</th><th>Team</th><th>Why this score</th><th>Draft reply</th></tr>${rows}</table></div>
+      <p class="muted">Nothing here was closed or reassigned — a human approves every action.</p></div>`;
+}
+
+// Run via a macrotask so the loading text actually paints before render.
+// The 150 ms pause keeps the indicator perceptible: triage itself takes
+// only a few ms, so without it the loading state would flash by unseen.
+async function run(issues) {
+  if (!kernelReady()) { showKernelError(); return; }
+  setLoading(true);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    render(issues);
+  } catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Could not triage:</b> ${esc(e.message)}</p></div>`;
+  } finally {
+    setLoading(false);
+    if (!kernelReady()) showKernelError();
+  }
+}
+
+document.getElementById('btn-sample').addEventListener('click', () => run(SAMPLE));
+document.getElementById('btn-large').addEventListener('click', () => run(LARGE));
+document.getElementById('btn-empty').addEventListener('click', () => run([]));
+document.getElementById('btn-custom').addEventListener('click', () => {
+  const raw = document.getElementById('input').value.trim();
+  if (!raw) {
+    outEl.innerHTML = '<div class="card"><p><b>Nothing pasted:</b> paste a JSON array of issues first.</p></div>';
+    return;
+  }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Invalid JSON:</b> ${esc(e.message)}</p></div>`;
+    return;
+  }
+  run(parsed);
+});
+
+// --- Optional LLM polish (wording only — decisions stay local) ---------
+// The key is read from the input at click time and held only in memory:
+// it is never written to a file, localStorage, sessionStorage or a cookie.
+// With the toggle off or the key empty, enhanceDraftReply() is never
+// called and no request is made. On any LLM failure the local draft stays.
+const llmEnableEl = document.getElementById('llm-enable');
+const llmKeyEl = document.getElementById('llm-key');
+const llmEndpointEl = document.getElementById('llm-endpoint');
+const llmModelEl = document.getElementById('llm-model');
+const llmStatusEl = document.getElementById('llm-status');
+
+function llmReady() {
+  return typeof window.TriageBotLLM === 'object' && window.TriageBotLLM !== null
+    && typeof window.TriageBotLLM.enhanceDraftReply === 'function';
+}
+
+function readLlmConfig() {
+  return {
+    enabled: llmEnableEl.checked,
+    apiKey: llmKeyEl.value,
+    endpoint: llmEndpointEl.value.trim(),
+    model: llmModelEl.value.trim() || 'gpt-4o-mini',
+  };
+}
+
+async function polishDraft(idx, button) {
+  const item = lastItems[idx];
+  if (!item) return;
+  const cfg = readLlmConfig();
+  const textEl = outEl.querySelector(`[data-draft="${idx}"]`);
+  const noteEl = outEl.querySelector(`[data-note="${idx}"]`);
+  if (!llmReady()) {
+    llmStatusEl.textContent = 'LLM module did not load — local drafts still work.';
+    return;
+  }
+  if (!cfg.enabled) {
+    llmStatusEl.textContent = 'LLM polish is off — turn it on and add your API key. No request was sent.';
+    return;
+  }
+  if (!cfg.apiKey.trim()) {
+    llmStatusEl.textContent = 'Add your API key to enable LLM polish — no request was sent.';
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Polishing…'; }
+  llmStatusEl.textContent = `Polishing draft for ${item.key} — sending only this issue to ${cfg.endpoint}…`;
+  try {
+    const r = await window.TriageBotLLM.enhanceDraftReply({
+      issue: { key: item.key, title: item.title, summary: item.summary },
+      scored: { band: item.band, score: item.score, reasons: item.reasons },
+      team: item.team,
+      duplicateOf: item.duplicateOf,
+      localDraft: item.draftReply,
+      apiKey: cfg.apiKey,
+      endpoint: cfg.endpoint,
+      model: cfg.model,
+    });
+    if (r.source === 'llm') {
+      if (textEl) textEl.textContent = r.text;
+      item.draftReply = r.text; // keep the shown text in sync if re-rendered from lastItems
+      item.draftSource = 'llm';
+      if (noteEl) noteEl.innerHTML = '<span class="llm-badge">✨ LLM-polished</span> Decision unchanged: same band, score, team and response time.';
+      llmStatusEl.textContent = `Polished ${item.key} with the LLM. Only this issue was sent.`;
+    } else {
+      if (noteEl) noteEl.textContent = r.reason;
+      llmStatusEl.textContent = `${item.key}: ${r.reason}`;
+    }
+  } catch (e) {
+    if (noteEl) noteEl.textContent = 'LLM polish failed — local draft kept.';
+    llmStatusEl.textContent = `${item.key}: LLM polish failed — local draft kept.`;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = '✨ Polish this draft with LLM'; }
+  }
+}
+
+// Per-row polish buttons are rendered with the results (event delegation).
+outEl.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest ? e.target.closest('.polish-btn') : null;
+  if (b) polishDraft(Number(b.dataset.idx), b);
+});
+
+document.getElementById('btn-polish-all').addEventListener('click', async () => {
+  const cfg = readLlmConfig();
+  if (!cfg.enabled) {
+    llmStatusEl.textContent = 'LLM polish is off — turn it on and add your API key. No request was sent.';
+    return;
+  }
+  if (!cfg.apiKey.trim()) {
+    llmStatusEl.textContent = 'Add your API key to enable LLM polish — no request was sent.';
+    return;
+  }
+  // Sequential, one issue at a time; already-polished drafts are skipped.
+  for (let i = 0; i < lastItems.length; i += 1) {
+    if (lastItems[i].draftSource === 'llm') continue;
+    const btn = outEl.querySelector(`.polish-btn[data-idx="${i}"]`);
+    // eslint-disable-next-line no-await-in-loop
+    await polishDraft(i, btn);
+  }
+  llmStatusEl.textContent += ' All visible drafts processed.';
+});
+
+// Initial render follows kernel readiness: never call render() before the
+// engine is confirmed loaded.
+if (kernelReady()) {
+  run(SAMPLE);
+} else {
+  showKernelError();
+}
+</script>
+</body>
+</html>

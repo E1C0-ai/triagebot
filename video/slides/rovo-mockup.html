@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<style>
+  body { margin:0; width:1280px; height:720px; background:#f7f7fb; color:#1a1a2e;
+         font-family: system-ui, sans-serif; padding:56px 72px; box-sizing:border-box; }
+  .badge { display:inline-block; background:#fff3cd; border:1px solid #e0a800; color:#7a5b00;
+           border-radius:8px; padding:6px 14px; font-size:18px; font-weight:600; margin-bottom:20px; }
+  h1 { font-size:40px; margin:0 0 8px; }
+  p.sub { font-size:22px; color:#555; margin:0 0 28px; }
+  .chat { background:#fff; border:1px solid #e3e3ee; border-radius:14px; padding:24px 28px;
+          font-size:22px; line-height:1.7; max-width:1000px; }
+  .u { color:#2545c7; font-weight:600; }
+  .a { color:#1a1a2e; }
+  .cmd { background:#f0f0f7; border-radius:8px; padding:2px 10px; font-size:20px; }
+</style>
+</head>
+<body>
+  <div class="badge">MOCKUP &mdash; ROVO CHAT FOOTAGE TO BE RECORDED AFTER DEPLOYMENT</div>
+  <h1>In Jira, you just talk to it</h1>
+  <p class="sub">Open Rovo Chat, pick the TriageBot agent, and ask:</p>
+  <div class="chat">
+    <p><span class="u">You:</span> <span class="cmd">Triage this week&rsquo;s backlog</span></p>
+    <p><span class="a">TriageBot:</span> 24 issues triaged. 2 P0, 7 P1. 3 duplicate groups found &mdash; full plan below, nothing closed or reassigned.</p>
+    <p><span class="u">You:</span> <span class="cmd">Which issues are duplicates?</span></p>
+    <p><span class="a">TriageBot:</span> OPS-202 duplicates OPS-201 (database down). PAY-302 duplicates PAY-301 (checkout payment). Keep the earliest report.</p>
+    <p><span class="u">You:</span> <span class="cmd">Draft replies for the top 5 issues</span></p>
+    <p><span class="a">TriageBot:</span> Drafts ready &mdash; P0 promises 4 business hours, P1 one business day. Approve before anything is posted.</p>
+  </div>
+</body>
+</html>

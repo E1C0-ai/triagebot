@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TriageBot — live demo (Codegeist 2026)</title>
+<style>
+  /* Light + dark via color-scheme and CSS variables. */
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7fb; --text: #1a1a2e; --muted: #555;
+    --card: #fff; --border: #e3e3ee;
+    --input-bg: #fff; --input-border: #ccc;
+    --pre-bg: #f0f0f7; --code-bg: #f0f0f7;
+    --warn-bg: #fff7e0; --warn-border: #d9a521; --warn-text: #5a4310;
+    --dup: #b91c1c; --link: #2545c7; --th: #555; --row-border: #eee;
+    --btn-bg: #1a1a2e; --btn-text: #fff;
+    --error-bg: #fde8e8; --error-border: #c81e1e; --error-text: #7f1d1d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141c; --text: #ececf2; --muted: #a9a9bd;
+      --card: #1e1e2a; --border: #35354a;
+      --input-bg: #262636; --input-border: #4a4a63;
+      --pre-bg: #262636; --code-bg: #262636;
+      --warn-bg: #3a2f10; --warn-border: #8a6d1f; --warn-text: #f5d67a;
+      --dup: #f87171; --link: #8aa2ff; --th: #b9b9cc; --row-border: #35354a;
+      --btn-bg: #e8e8f2; --btn-text: #14141c;
+      --error-bg: #3d1717; --error-border: #f87171; --error-text: #fecaca;
+    }
+  }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 960px; padding: 24px 16px 64px; color: var(--text); background: var(--bg); }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { border: 1px solid var(--btn-bg); background: var(--btn-bg); color: var(--btn-text); border-radius: 8px; padding: 9px 14px; cursor: pointer; font-size: 14px; }
+  button.secondary { background: var(--card); color: var(--text); border-color: var(--border); }
+  button:hover:not(:disabled) { opacity: .85; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 180px; max-height: 320px; overflow-y: auto; resize: vertical; font: 13px/1.5 ui-monospace, monospace; color: var(--text); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 10px; margin-top: 10px; }
+  input[type="text"], input[type="password"] { box-sizing: border-box; color: var(--text); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 9px 10px; font-size: 13px; }
+  .draft-note { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .llm-badge { display: inline-block; font-size: 12px; font-weight: 700; color: #1d4ed8; background: #dbeafe; border-radius: 6px; padding: 1px 7px; margin-left: 6px; }
+  @media (prefers-color-scheme: dark) { .llm-badge { color: #bfdbfe; background: #1e3a5f; } }
+  .polish-btn { margin-top: 8px; padding: 6px 10px; font-size: 13px; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--pre-bg); border-radius: 8px; padding: 12px; font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--row-border); vertical-align: top; }
+  th { color: var(--th); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .band { display: inline-block; min-width: 30px; text-align: center; font-weight: 700; border-radius: 6px; padding: 2px 7px; color: #fff; }
+  .P0 { background: #c81e1e; } .P1 { background: #c25700; } .P2 { background: #8a5a00; } .P3 { background: #5b6b82; }
+  .dup { color: var(--dup); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 13px; }
+  details { margin-top: 6px; } summary { cursor: pointer; color: var(--link); font-size: 13px; }
+  .warn { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .status { min-height: 1.2em; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>TriageBot — live demo</h1>
+<p class="sub">The same engine the Forge + Rovo agent calls (<code>src/triage.js</code>), running in your browser. No server, no key, no data leaves this page. Paste your own Jira issues as JSON, or try a sample.</p>
+<p class="sub">All computation happens locally in your browser — nothing is uploaded. TriageBot only assists analysis: it never modifies a Jira issue. Every action needs a human to confirm. <b>Privacy by default:</b> with LLM polish off (the default), this page makes zero network requests. The optional LLM only ever receives one issue at a time, and only when you turn it on.</p>
+
+<div id="kernel-error" class="error" hidden><b>TriageBot 内核脚本加载失败，请刷新页面</b><br>The demo engine could not be loaded, so all actions are disabled.</div>
+<noscript><div class="error"><b>JavaScript is required for this demo.</b></div></noscript>
+
+<div class="card">
+  <div class="row" id="actions">
+    <button id="btn-sample" type="button">Sample — 6 issues</button>
+    <button id="btn-large" type="button" class="secondary">Stress — 24 issues</button>
+    <button id="btn-empty" type="button" class="secondary">Empty backlog</button>
+    <button id="btn-custom" type="button" class="secondary">Run pasted JSON ↓</button>
+  </div>
+  <textarea id="input" placeholder='[{"key":"PROJ-1","title":"Checkout payment fails","summary":"Payment fails at checkout in production","type":"Bug","created":"2026-11-20T09:00:00Z"}]'></textarea>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <p class="muted">Each issue: <code>key</code>, <code>title</code>, <code>summary</code>, <code>type</code> (Bug / Incident / Story / Task), <code>created</code> (ISO date). Missing fields are tolerated — see warnings below.</p>
+</div>
+
+<div id="out"></div>
+
+<div class="card" id="llm-card">
+  <h3 style="margin-top:0">✨ Optional: LLM-polished draft replies</h3>
+  <p class="muted" style="margin-top:0">Priority, duplicates and team are always decided locally — the LLM only rewrites the <i>wording</i> of one draft reply at a time. It never changes the band, score, team or response time.</p>
+  <label class="row" style="gap:6px"><input type="checkbox" id="llm-enable"> Enable LLM polish</label>
+  <div class="row" style="margin-top:10px">
+    <input type="password" id="llm-key" placeholder="API key (sk-…) — memory only, never saved" autocomplete="off" style="flex:2; min-width:220px">
+    <input type="text" id="llm-endpoint" value="https://api.openai.com/v1/chat/completions" title="OpenAI-compatible chat completions endpoint" style="flex:2; min-width:220px">
+    <input type="text" id="llm-model" value="gpt-4o-mini" title="Model name" style="flex:1; min-width:120px">
+  </div>
+  <p class="muted">Your key is read when you click “Polish” and held only in memory: it is never written to a file, localStorage, or a cookie, and it is only sent as an Authorization header to the endpoint above. Each polish sends a single issue's title, summary, band, score and team — never the whole backlog. If the LLM fails or you leave the key empty, the local draft stays and you are told why.</p>
+  <div class="row">
+    <button id="btn-polish-all" type="button" class="secondary">✨ Polish all visible drafts</button>
+  </div>
+  <p class="status" id="llm-status" role="status" aria-live="polite"></p>
+</div>
+
+<!-- Single-file demo (Codegeist 2026): the full triage.js engine is inlined
+     below so this page works by double-clicking it, with no server and no
+     relative-path dependency. The readable source stays in src/triage.js;
+     regenerate this file with demo/build_demo.py after editing the engine. -->
+<script>
+/*__TRIAGE_ENGINE__*/
+</script>
+<!-- Optional LLM polish (src/llm.js, inlined by demo/build_demo.py).
+     Loaded but inert: it makes no request unless the user enables it
+     and supplies a key. The key is never persisted anywhere. -->
+<script>
+/*__LLM_ENHANCER__*/
+</script>
+<script>
+'use strict';
+
+// Test hook for the kernel-failure check: open demo.html with
+// ?simulate-kernel-failure=1 to verify the error banner + disabled buttons.
+const SIMULATE_KERNEL_FAILURE =
+  new URLSearchParams(window.location.search).has('simulate-kernel-failure');
+
+const buttons = Array.from(document.querySelectorAll('#actions button'));
+const statusEl = document.getElementById('status');
+const outEl = document.getElementById('out');
+const kernelErrorEl = document.getElementById('kernel-error');
+let lastItems = []; // items from the latest triage run, for LLM polish
+
+function kernelReady() {
+  if (SIMULATE_KERNEL_FAILURE) return false;
+  return typeof window.TriageBot === 'object' && window.TriageBot !== null
+    && typeof window.TriageBot.triageBacklog === 'function';
+}
+
+function setButtonsDisabled(disabled) {
+  buttons.forEach((b) => { b.disabled = disabled; });
+}
+
+function showKernelError() {
+  kernelErrorEl.hidden = false;
+  setButtonsDisabled(true);
+  statusEl.textContent = '';
+  outEl.innerHTML = '<div class="card"><p><b>TriageBot 内核脚本加载失败，请刷新页面</b></p></div>';
+}
+
+function setLoading(on) {
+  statusEl.textContent = on ? '正在本地分析工单…' : '';
+  setButtonsDisabled(on);
+}
+
+const SAMPLE = [
+  {"created":"2026-11-20T09:00:00Z","key":"PROJ-101","summary":"Payment fails at checkout in production, customers cannot complete orders","title":"Checkout payment fails for all users","type":"Bug"},
+  {"created":"2026-11-21T09:00:00Z","key":"PROJ-102","summary":"Checkout payment error, order cannot be completed in production","title":"Payment error at checkout","type":"Bug"},
+  {"created":"2026-11-10T09:00:00Z","key":"PROJ-103","summary":"The login button is slightly misaligned on small screens, cosmetic only","title":"Login page button misaligned on mobile","type":"Bug"},
+  {"created":"2026-11-24T09:00:00Z","key":"PROJ-104","summary":"Reports API times out under load, server returns 500","title":"API timeout on reports endpoint","type":"Bug"},
+  {"created":"2026-11-01T09:00:00Z","key":"PROJ-105","summary":"Feature request: dark mode for the settings page","title":"Add dark mode to settings page","type":"Story"},
+  {"created":"2026-11-25T09:00:00Z","key":"PROJ-106","summary":"Security vulnerability, auth token appears in server logs","title":"Security: auth token leaked in logs","type":"Bug"}
+];
+// Stress set: the full 24-issue backlog from test-data/large-backlog.json.
+/*__LARGE_BACKLOG__*/
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(issues) {
+  if (!kernelReady()) { showKernelError(); return; }
+  const t0 = performance.now();
+  let result;
+  try {
+    result = window.TriageBot.triageBacklog(issues, new Date('2026-11-25T12:00:00Z'));
+  } catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Could not triage:</b> ${esc(e.message)}</p></div>`;
+    return;
+  }
+  const ms = (performance.now() - t0).toFixed(1);
+  lastItems = result.items || [];
+  if (!result.items || result.items.length === 0) {
+    outEl.innerHTML = `
+    <div class="card"><pre>${esc(result.digest)}</pre>
+      <p><b>没有待排序工单</b></p>
+      <p class="muted">Triaged in ${ms} ms in your browser · 0 issues · ${result.warnings.length} warning(s)</p>
+      ${result.warnings.length ? `<div class="warn">${result.warnings.map(esc).join('<br>')}</div>` : ''}
+    </div>`;
+    return;
+  }
+  const rows = result.items.map((x, idx) => `<tr>
+    <td><span class="band ${x.band}">${x.band}</span> ${x.score}</td>
+    <td><b>${esc(x.key)}</b><br>${esc(x.title)}${x.isDuplicate ? ` <span class="dup">— duplicate of ${esc(x.duplicateOf)}</span>` : ''}</td>
+    <td>${esc(x.team)}</td>
+    <td>${esc(x.reasons.join(', ') || '—')}</td>
+    <td><details><summary>Draft reply</summary><p class="draft-text" data-draft="${idx}">${esc(x.draftReply)}</p></details><button type="button" class="polish-btn secondary" data-idx="${idx}">✨ Polish this draft with LLM</button><p class="draft-note" data-note="${idx}"></p></td>
+  </tr>`).join('');
+  lastItems = result.items;
+  const dups = result.duplicates.map(d => `<li><b>Keep ${esc(d.keep)}</b> — ${esc(d.duplicates.join(', '))} ${esc(d.reason)}</li>`).join('');
+  outEl.innerHTML = `
+    <div class="card"><pre>${esc(result.digest)}</pre>
+      <p class="muted">Triaged in ${ms} ms in your browser · ${result.stats.total} issues · ${result.warnings.length} warning(s)</p>
+      ${result.warnings.length ? `<div class="warn">${result.warnings.map(esc).join('<br>')}</div>` : ''}
+    </div>
+    ${result.duplicates.length ? `<div class="card"><h3 style="margin-top:0">Duplicate groups (${result.duplicates.length})</h3><ul>${dups}</ul></div>` : ''}
+    <div class="card"><h3 style="margin-top:0">Ranked backlog</h3>
+      <div class="table-wrap"><table><tr><th>Priority</th><th>Issue</th><th>Team</th><th>Why this score</th><th>Draft reply</th></tr>${rows}</table></div>
+      <p class="muted">Nothing here was closed or reassigned — a human approves every action.</p></div>`;
+}
+
+// Run via a macrotask so the loading text actually paints before render.
+// The 150 ms pause keeps the indicator perceptible: triage itself takes
+// only a few ms, so without it the loading state would flash by unseen.
+async function run(issues) {
+  if (!kernelReady()) { showKernelError(); return; }
+  setLoading(true);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    render(issues);
+  } catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Could not triage:</b> ${esc(e.message)}</p></div>`;
+  } finally {
+    setLoading(false);
+    if (!kernelReady()) showKernelError();
+  }
+}
+
+document.getElementById('btn-sample').addEventListener('click', () => run(SAMPLE));
+document.getElementById('btn-large').addEventListener('click', () => run(LARGE));
+document.getElementById('btn-empty').addEventListener('click', () => run([]));
+document.getElementById('btn-custom').addEventListener('click', () => {
+  const raw = document.getElementById('input').value.trim();
+  if (!raw) {
+    outEl.innerHTML = '<div class="card"><p><b>Nothing pasted:</b> paste a JSON array of issues first.</p></div>';
+    return;
+  }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (e) {
+    outEl.innerHTML = `<div class="card"><p><b>Invalid JSON:</b> ${esc(e.message)}</p></div>`;
+    return;
+  }
+  run(parsed);
+});
+
+// --- Optional LLM polish (wording only — decisions stay local) ---------
+// The key is read from the input at click time and held only in memory:
+// it is never written to a file, localStorage, sessionStorage or a cookie.
+// With the toggle off or the key empty, enhanceDraftReply() is never
+// called and no request is made. On any LLM failure the local draft stays.
+const llmEnableEl = document.getElementById('llm-enable');
+const llmKeyEl = document.getElementById('llm-key');
+const llmEndpointEl = document.getElementById('llm-endpoint');
+const llmModelEl = document.getElementById('llm-model');
+const llmStatusEl = document.getElementById('llm-status');
+
+function llmReady() {
+  return typeof window.TriageBotLLM === 'object' && window.TriageBotLLM !== null
+    && typeof window.TriageBotLLM.enhanceDraftReply === 'function';
+}
+
+function readLlmConfig() {
+  return {
+    enabled: llmEnableEl.checked,
+    apiKey: llmKeyEl.value,
+    endpoint: llmEndpointEl.value.trim(),
+    model: llmModelEl.value.trim() || 'gpt-4o-mini',
+  };
+}
+
+async function polishDraft(idx, button) {
+  const item = lastItems[idx];
+  if (!item) return;
+  const cfg = readLlmConfig();
+  const textEl = outEl.querySelector(`[data-draft="${idx}"]`);
+  const noteEl = outEl.querySelector(`[data-note="${idx}"]`);
+  if (!llmReady()) {
+    llmStatusEl.textContent = 'LLM module did not load — local drafts still work.';
+    return;
+  }
+  if (!cfg.enabled) {
+    llmStatusEl.textContent = 'LLM polish is off — turn it on and add your API key. No request was sent.';
+    return;
+  }
+  if (!cfg.apiKey.trim()) {
+    llmStatusEl.textContent = 'Add your API key to enable LLM polish — no request was sent.';
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Polishing…'; }
+  llmStatusEl.textContent = `Polishing draft for ${item.key} — sending only this issue to ${cfg.endpoint}…`;
+  try {
+    const r = await window.TriageBotLLM.enhanceDraftReply({
+      issue: { key: item.key, title: item.title, summary: item.summary },
+      scored: { band: item.band, score: item.score, reasons: item.reasons },
+      team: item.team,
+      duplicateOf: item.duplicateOf,
+      localDraft: item.draftReply,
+      apiKey: cfg.apiKey,
+      endpoint: cfg.endpoint,
+      model: cfg.model,
+    });
+    if (r.source === 'llm') {
+      if (textEl) textEl.textContent = r.text;
+      item.draftReply = r.text; // keep the shown text in sync if re-rendered from lastItems
+      item.draftSource = 'llm';
+      if (noteEl) noteEl.innerHTML = '<span class="llm-badge">✨ LLM-polished</span> Decision unchanged: same band, score, team and response time.';
+      llmStatusEl.textContent = `Polished ${item.key} with the LLM. Only this issue was sent.`;
+    } else {
+      if (noteEl) noteEl.textContent = r.reason;
+      llmStatusEl.textContent = `${item.key}: ${r.reason}`;
+    }
+  } catch (e) {
+    if (noteEl) noteEl.textContent = 'LLM polish failed — local draft kept.';
+    llmStatusEl.textContent = `${item.key}: LLM polish failed — local draft kept.`;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = '✨ Polish this draft with LLM'; }
+  }
+}
+
+// Per-row polish buttons are rendered with the results (event delegation).
+outEl.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest ? e.target.closest('.polish-btn') : null;
+  if (b) polishDraft(Number(b.dataset.idx), b);
+});
+
+document.getElementById('btn-polish-all').addEventListener('click', async () => {
+  const cfg = readLlmConfig();
+  if (!cfg.enabled) {
+    llmStatusEl.textContent = 'LLM polish is off — turn it on and add your API key. No request was sent.';
+    return;
+  }
+  if (!cfg.apiKey.trim()) {
+    llmStatusEl.textContent = 'Add your API key to enable LLM polish — no request was sent.';
+    return;
+  }
+  // Sequential, one issue at a time; already-polished drafts are skipped.
+  for (let i = 0; i < lastItems.length; i += 1) {
+    if (lastItems[i].draftSource === 'llm') continue;
+    const btn = outEl.querySelector(`.polish-btn[data-idx="${i}"]`);
+    // eslint-disable-next-line no-await-in-loop
+    await polishDraft(i, btn);
+  }
+  llmStatusEl.textContent += ' All visible drafts processed.';
+});
+
+// Initial render follows kernel readiness: never call render() before the
+// engine is confirmed loaded.
+if (kernelReady()) {
+  run(SAMPLE);
+} else {
+  showKernelError();
+}
+</script>
+</body>
+</html>

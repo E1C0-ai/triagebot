@@ -1,0 +1,95 @@
+1
+00:00:00,000 --> 00:00:02,622
+Every software team has the same Monday problem.
+
+2
+00:00:02,622 --> 00:00:05,244
+A Jira backlog full of duplicates, stale requests,
+
+3
+00:00:05,244 --> 00:00:07,866
+and one outage buried under cosmetic tickets.
+
+4
+00:00:07,866 --> 00:00:10,488
+Meet TriageBot.
+
+5
+00:00:11,288 --> 00:00:15,260
+TriageBot is a Forge and Rovo agent for Jira.
+
+6
+00:00:15,260 --> 00:00:19,232
+Give it a messy backlog, and in seconds it ranks every issue,
+
+7
+00:00:19,232 --> 00:00:23,204
+finds the duplicates, and drafts a first reply.
+
+8
+00:00:23,204 --> 00:00:27,176
+No configuration, no API key.
+
+9
+00:00:27,976 --> 00:00:32,878
+Six issues go in. The checkout outage comes out P0, score 71.
+
+10
+00:00:32,878 --> 00:00:37,780
+The leaked auth token routes to security, not backend.
+
+11
+00:00:37,780 --> 00:00:42,682
+The two checkout reports are one duplicate, similarity 0.86.
+
+12
+00:00:42,682 --> 00:00:47,584
+The misaligned button stays P3. Every score shows its reasons.
+
+13
+00:00:48,384 --> 00:00:52,362
+It scales. 24 issues in 20 milliseconds.
+
+14
+00:00:52,362 --> 00:00:56,340
+Three duplicate groups, two P0s.
+
+15
+00:00:56,340 --> 00:01:00,318
+A 60-day-old feature request stays P3 —
+
+16
+00:01:00,318 --> 00:01:04,296
+age is a tiebreaker, never the reason.
+
+17
+00:01:05,096 --> 00:01:08,154
+In Jira, you just talk to it.
+
+18
+00:01:08,154 --> 00:01:11,212
+Triage this week's backlog. Find the duplicates.
+
+19
+00:01:11,212 --> 00:01:14,270
+Draft replies for the top five.
+
+20
+00:01:14,270 --> 00:01:17,328
+Live Rovo chat, in Jira, on the demo site.
+
+21
+00:01:18,128 --> 00:01:22,610
+It never acts on its own. It proposes, a human approves.
+
+22
+00:01:22,610 --> 00:01:27,092
+It never closes an issue, reassigns anyone, or posts a comment.
+
+23
+00:01:27,092 --> 00:01:31,574
+TriageBot. Codegeist 2026.
+
+24
+00:01:31,574 --> 00:01:36,056
+A ranked, deduped plan, with a reason for every line.

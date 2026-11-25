@@ -1,0 +1,120 @@
+# Forge manifest — TriageBot (Codegeist 2026)
+#
+# Category: Apps for Software Teams.
+# Bonus targets: Best Agents (rovo:agent + reusable rovo:skill) and Best app
+# with Atlassian MCP (rovo:mcp). One submission can win one grand prize plus
+# one bonus prize, so both are declared; the judges pick at most one.
+#
+# NOT YET DEPLOYED. Deploy needs an Atlassian developer account:
+#   forge login && forge deploy && forge install
+# `forge create` replaces the placeholder app.id below with a real one.
+# The engine (src/triage.js) is fully tested locally without any account.
+app:
+  id: ari:cloud:ecosystem::app/42ec596c-767c-41b1-93da-b1e98ac51814
+  description: "TriageBot — one-click Jira backlog triage: dedupes, scores P0-P3,
+    routes to a team, drafts first replies. A human approves every action."
+  runtime:
+    name: nodejs22.x
+  rovo:
+    tag: triage
+    description: Triage Jira backlogs — dedupe, score priority, route and draft replies.
+    keywords:
+      - triage
+      - jira
+      - duplicates
+modules:
+  rovo:agent:
+    - key: triage-agent
+      name: TriageBot
+      description: Triages a Jira backlog — clusters duplicates, scores priority
+        P0-P3, suggests an owning team, drafts a first reply. Proposes only;
+        never closes or reassigns without human approval.
+      prompt: resource:agent-prompt;prompt.md
+      conversationStarters:
+        - Triage this week's backlog
+        - Which issues are duplicates?
+        - Draft replies for the top 5 issues
+        - What is the most urgent issue right now?
+      actions:
+        - triage-backlog
+        - get-duplicates
+        - draft-reply
+      skills:
+        - triage-playbook
+      followUpPrompt: Offer to show the next 5 issues, the duplicate groups, or draft
+        replies for the top issues.
+  rovo:skill:
+    - key: triage-playbook
+      source:
+        dir: skills/triage-playbook
+      dependencies:
+        tools:
+          - triage-backlog
+          - get-duplicates
+          - draft-reply
+  rovo:mcp:
+    - key: triage-mcp
+      name: TriageBot MCP
+      tools:
+        - triage-backlog
+        - get-duplicates
+        - draft-reply
+  action:
+    - key: triage-backlog
+      name: Triage backlog
+      function: triage-backlog-function
+      actionVerb: GET
+      description: Triages the open issues of a Jira project — clusters duplicates,
+        scores each issue P0-P3 with reasons, suggests an owning team, and
+        returns a ranked digest. Read-only; it never closes, reassigns, or
+        comments on any issue.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, e.g. PROJ. Leave empty to triage all open issues
+            on the site.
+        maxResults:
+          title: Maximum issues
+          type: integer
+          required: false
+          description: Maximum number of open issues to triage (default 100).
+    - key: get-duplicates
+      name: Find duplicate issues
+      function: get-duplicates-function
+      actionVerb: GET
+      description: Lists groups of duplicate Jira issues, with the issue to keep and
+        the similarity score for each group.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, e.g. PROJ. Leave empty to check all open issues
+            on the site.
+    - key: draft-reply
+      name: Draft a first reply
+      function: draft-reply-function
+      actionVerb: GET
+      description: Drafts a first reply for one Jira issue, with its priority band,
+        score, reasons, owning team, and a band-appropriate response time.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key, e.g. PROJ-101.
+  function:
+    - key: triage-backlog-function
+      handler: index.triageBacklogAction
+    - key: get-duplicates-function
+      handler: index.getDuplicatesAction
+    - key: draft-reply-function
+      handler: index.draftReplyAction
+resources:
+  - key: agent-prompt
+    path: resource/agent
+permissions:
+  scopes:
+    - read:jira-work
