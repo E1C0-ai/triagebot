@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>TriageBot — Privacy Policy</title></head>
+<body>
+<h1>TriageBot — Privacy Policy</h1>
+<p>Last updated: 2026-11-26. Developer: E1C0 (individual developer). Contact: arsdgjin@gmail.com.</p>
+<h2>What TriageBot does</h2>
+<p>TriageBot is a Forge + Rovo agent for Jira. It reads Jira issues in the site where it is installed, ranks and groups them, and drafts first replies. A human approves every action; TriageBot never closes, reassigns, or comments on issues by itself.</p>
+<h2>Data collection</h2>
+<p>TriageBot does not collect, copy, or store personal data in its own systems. It holds only the <code>read:jira-work</code> scope and reads issue data at request time through the Atlassian APIs. Issue titles, summaries, and scores are processed in memory for the single request and are not retained, sold, or shared with third parties.</p>
+<h2>Optional LLM wording polish</h2>
+<p>By default TriageBot makes no model calls and no network requests outside Atlassian. If a user opts in and supplies their own OpenAI-compatible API key for one call, a single issue's title, summary, band, and score are sent to that provider to polish the wording of a draft reply. The key is held in memory only, never stored, and any failure falls back to the local draft. Decisions (priority band, score, team, response time) are never delegated to the model.</p>
+<h2>Data retention</h2>
+<p>No personal data is retained. No data is cached for longer than the single request.</p>
+<h2>Contact</h2>
+<p>Questions about this policy: arsdgjin@gmail.com.</p>
+</body>
+</html>
